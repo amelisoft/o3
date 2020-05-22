@@ -10,10 +10,14 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import javax.annotation.Nonnull;
+
+@SuppressWarnings("unused")
 public class RNDeviceInfo implements ReactPackage {
 
   @Override
-  public List<NativeModule> createNativeModules(ReactApplicationContext reactContext) {
+  @Nonnull
+  public List<NativeModule> createNativeModules(@Nonnull ReactApplicationContext reactContext) {
     List<NativeModule> modules = new ArrayList<>();
 
     modules.add(new RNDeviceModule(reactContext));
@@ -27,8 +31,8 @@ public class RNDeviceInfo implements ReactPackage {
   }
 
   @Override
-  public List<ViewManager> createViewManagers(
-      ReactApplicationContext reactContext) {
+  @Nonnull
+  public List<ViewManager> createViewManagers(@Nonnull ReactApplicationContext reactContext) {
     return Collections.emptyList();
   }
 

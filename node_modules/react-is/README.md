@@ -1,6 +1,6 @@
 # `react-is`
 
-This package allows you to test arbitrary values and see if they're a particular React type, e.g. React Elements.
+This package allows you to test arbitrary values and see if they're a particular React element type.
 
 ## Installation
 
@@ -9,22 +9,43 @@ This package allows you to test arbitrary values and see if they're a particular
 yarn add react-is
 
 # NPM
-npm install react-is --save
+npm install react-is
 ```
 
 ## Usage
 
-### AsyncMode
+### Determining if a Component is Valid
 
 ```js
 import React from "react";
-import * as ReactIs from 'react-is';
+import * as ReactIs from "react-is";
 
-ReactIs.isAsyncMode(<React.unstable_AsyncMode />); // true
-ReactIs.typeOf(<React.unstable_AsyncMode />) === ReactIs.AsyncMode; // true
+class ClassComponent extends React.Component {
+  render() {
+    return React.createElement("div");
+  }
+}
+
+const FunctionComponent = () => React.createElement("div");
+
+const ForwardRefComponent = React.forwardRef((props, ref) =>
+  React.createElement(Component, { forwardedRef: ref, ...props })
+);
+
+const Context = React.createContext(false);
+
+ReactIs.isValidElementType("div"); // true
+ReactIs.isValidElementType(ClassComponent); // true
+ReactIs.isValidElementType(FunctionComponent); // true
+ReactIs.isValidElementType(ForwardRefComponent); // true
+ReactIs.isValidElementType(Context.Provider); // true
+ReactIs.isValidElementType(Context.Consumer); // true
+ReactIs.isValidElementType(React.createFactory("div")); // true
 ```
 
-### Context
+### Determining an Element's Type
+
+#### Context
 
 ```js
 import React from "react";
@@ -38,7 +59,7 @@ ReactIs.typeOf(<ThemeContext.Provider />) === ReactIs.ContextProvider; // true
 ReactIs.typeOf(<ThemeContext.Consumer />) === ReactIs.ContextConsumer; // true
 ```
 
-### Element
+#### Element
 
 ```js
 import React from "react";
@@ -48,7 +69,7 @@ ReactIs.isElement(<div />); // true
 ReactIs.typeOf(<div />) === ReactIs.Element; // true
 ```
 
-### Fragment
+#### Fragment
 
 ```js
 import React from "react";
@@ -58,7 +79,7 @@ ReactIs.isFragment(<></>); // true
 ReactIs.typeOf(<></>) === ReactIs.Fragment; // true
 ```
 
-### Portal
+#### Portal
 
 ```js
 import React from "react";
@@ -72,7 +93,7 @@ ReactIs.isPortal(portal); // true
 ReactIs.typeOf(portal) === ReactIs.Portal; // true
 ```
 
-### StrictMode
+#### StrictMode
 
 ```js
 import React from "react";

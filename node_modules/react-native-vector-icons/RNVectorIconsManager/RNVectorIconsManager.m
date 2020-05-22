@@ -23,13 +23,19 @@
 #else // Compatibility for RN version < 0.40
 #import "RCTUtils.h"
 #endif
+#if __has_include(<React/RCTFont.h>)
+#import <React/RCTFont.h>
+#else // Compatibility for RN version < 0.40
+#import "RCTFont.h"
+#endif
 
 @implementation RNVectorIconsManager
 
 @synthesize bridge = _bridge;
 RCT_EXPORT_MODULE();
 
-- (NSString *)hexStringFromColor:(UIColor *)color {
+- (NSString *)hexStringFromColor:(UIColor *)color
+{
   const CGFloat *components = CGColorGetComponents(color.CGColor);
 
   CGFloat r = components[0];
@@ -42,19 +48,28 @@ RCT_EXPORT_MODULE();
           lroundf(b * 255)];
 }
 
-
-RCT_EXPORT_METHOD(getImageForFont:(NSString*)fontName withGlyph:(NSString*)glyph withFontSize:(CGFloat)fontSize withColor:(UIColor *)color callback:(RCTResponseSenderBlock)callback){
+- (NSString *)generateFilePath:(NSString *)glyph withFontName:(NSString *)fontName
+                                                 withFontSize:(CGFloat)fontSize
+                                                 withColor:(UIColor *)color
+                                                 withExtraIdentifier:(NSString *)identifier
+{
   CGFloat screenScale = RCTScreenScale();
-
   NSString *hexColor = [self hexStringFromColor:color];
+  NSString *fileName = [NSString stringWithFormat:@"tmp/RNVectorIcons_%@_%@_%hu_%.f%@@%.fx.png",
+                                                  identifier, fontName,
+                                                  [glyph characterAtIndex:0],
+                                                  fontSize, hexColor, screenScale];
+  
+  return [NSHomeDirectory() stringByAppendingPathComponent:fileName];
+}
 
-  NSString *fileName = [NSString stringWithFormat:@"tmp/RNVectorIcons_%@_%hu_%.f%@@%.fx.png", fontName, [glyph characterAtIndex:0], fontSize, hexColor, screenScale];
-  NSString *filePath = [NSHomeDirectory() stringByAppendingPathComponent:fileName];
-
+- (BOOL)createAndSaveGlyphImage:(NSString *)glyph withFont:(UIFont *)font
+                                                  withFilePath:(NSString *)filePath
+                                                  withColor:(UIColor *)color
+{
   if(![[NSFileManager defaultManager] fileExistsAtPath:filePath]) {
     // No cached icon exists, we need to create it and persist to disk
 
-    UIFont *font = [UIFont fontWithName:fontName size:fontSize];
     NSAttributedString *attributedString = [[NSAttributedString alloc] initWithString:glyph attributes:@{NSFontAttributeName: font, NSForegroundColorAttributeName: color}];
 
     CGSize iconSize = [attributedString size];
@@ -65,11 +80,32 @@ RCT_EXPORT_METHOD(getImageForFont:(NSString*)fontName withGlyph:(NSString*)glyph
     UIGraphicsEndImageContext();
   
     NSData *imageData = UIImagePNGRepresentation(iconImage);
-    BOOL success = [imageData writeToFile:filePath atomically:YES];
-    if(!success) {
-      return callback(@[@"Failed to write rendered icon image"]);
-    }
+    return [imageData writeToFile:filePath atomically:YES];
   }
+  
+  return YES;
+}
+
+RCT_EXPORT_METHOD(getImageForFont:(NSString *)fontName
+                  withGlyph:(NSString *)glyph
+                  withFontSize:(CGFloat)fontSize
+                  withColor:(UIColor *)color
+                  callback:(RCTResponseSenderBlock)callback)
+{
+  UIFont *font = [UIFont fontWithName:fontName size:fontSize];
+  NSString *filePath = [self generateFilePath:glyph withFontName:fontName
+                                                    withFontSize:fontSize
+                                                    withColor:color
+                                                    withExtraIdentifier:@""];
+
+  BOOL success = [self createAndSaveGlyphImage:glyph withFont:font
+                                                     withFilePath:filePath
+                                                     withColor:color];
+  
+  if(!success) {
+    return callback(@[@"Failed to write rendered icon image"]);
+  }
+  
   callback(@[[NSNull null], filePath]);
 }
 

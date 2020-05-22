@@ -14,7 +14,8 @@ function extractGlyphMapFromCss(files, selectorPattern) {
     if (ruleParts[2]) {
       // Hex value in CSS
       return parseInt(ruleParts[2], 16);
-    } else if (ruleParts[3].length > 1) {
+    }
+    if (ruleParts[3].length > 1) {
       // String value in CSS that we'll keep as a string because it's not a single character
       return ruleParts[3];
     }
@@ -47,7 +48,7 @@ function escapeRegExp(str) {
 function generateIconSetFromCss(cssFiles, selectorPrefix, template, data = {}) {
   const glyphMap = extractGlyphMapFromCss(
     cssFiles,
-    `${escapeRegExp(selectorPrefix)}([A-Za-z0-9_-]+):before`
+    `${escapeRegExp(selectorPrefix)}([A-Za-z0-9_-]+)::?before`
   );
   const content = JSON.stringify(glyphMap, null, '  ');
   if (template) {

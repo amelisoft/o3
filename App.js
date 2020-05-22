@@ -5,27 +5,21 @@
  */
 
 import React, { Component } from 'react';
-import { StackNavigator } from 'react-navigation';
 import HomeScreen from './Homepage';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
 
-import {
-  Platform,
-  StyleSheet,
-  Text,
-  View
-} from 'react-native';
+const Stack = createStackNavigator();
 
-const RootStack = StackNavigator({
-  Home: {
-    screen: HomeScreen,
-  }
-},
-{
-  headerMode: 'none'
-});
 
 export default class App extends Component{
   render() {
-    return (<RootStack />);
+    return (
+      <NavigationContainer>
+      <Stack.Navigator>
+        <Stack.Screen name="Home" component={HomeScreen} />
+      </Stack.Navigator>
+    </NavigationContainer> 
+    );
   }
 }

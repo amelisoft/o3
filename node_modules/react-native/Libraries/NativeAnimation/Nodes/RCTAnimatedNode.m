@@ -1,13 +1,11 @@
-/**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+/*
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
-#import "RCTAnimatedNode.h"
+#import <React/RCTAnimatedNode.h>
 
 #import <React/RCTDefines.h>
 
@@ -112,9 +110,19 @@ RCT_NOT_IMPLEMENTED(- (instancetype)init)
 - (void)performUpdate
 {
   _needsUpdate = NO;
-  // To be overidden by subclasses
+  // To be overridden by subclasses
   // This method is called on a node only if it has been marked for update
   // during the current update loop
+}
+
+- (BOOL)isManagedByFabric
+{
+  for (RCTAnimatedNode *child in _childNodes.objectEnumerator) {
+    if ([child isManagedByFabric]) {
+      return YES;
+    }
+  }
+  return NO;
 }
 
 @end

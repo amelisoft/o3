@@ -1,18 +1,16 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  *
- * @providesModule VirtualizeUtils
  * @flow
  * @format
  */
+
 'use strict';
 
-const invariant = require('fbjs/lib/invariant');
+const invariant = require('invariant');
 
 /**
  * Used to find the indices of the frames that overlap the given offsets. Useful for finding the
@@ -22,7 +20,13 @@ const invariant = require('fbjs/lib/invariant');
 function elementsThatOverlapOffsets(
   offsets: Array<number>,
   itemCount: number,
-  getFrameMetrics: (index: number) => {length: number, offset: number},
+  getFrameMetrics: (
+    index: number,
+  ) => {
+    length: number,
+    offset: number,
+    ...
+  },
 ): Array<number> {
   const out = [];
   let outLength = 0;
@@ -54,8 +58,16 @@ function elementsThatOverlapOffsets(
  * faster.
  */
 function newRangeCount(
-  prev: {first: number, last: number},
-  next: {first: number, last: number},
+  prev: {
+    first: number,
+    last: number,
+    ...
+  },
+  next: {
+    first: number,
+    last: number,
+    ...
+  },
 ): number {
   return (
     next.last -
@@ -80,16 +92,32 @@ function computeWindowedRenderLimits(
     getItemCount: (data: any) => number,
     maxToRenderPerBatch: number,
     windowSize: number,
+    ...
   },
-  prev: {first: number, last: number},
-  getFrameMetricsApprox: (index: number) => {length: number, offset: number},
+  prev: {
+    first: number,
+    last: number,
+    ...
+  },
+  getFrameMetricsApprox: (
+    index: number,
+  ) => {
+    length: number,
+    offset: number,
+    ...
+  },
   scrollMetrics: {
     dt: number,
     offset: number,
     velocity: number,
     visibleLength: number,
+    ...
   },
-): {first: number, last: number} {
+): {
+  first: number,
+  last: number,
+  ...
+} {
   const {data, getItemCount, maxToRenderPerBatch, windowSize} = props;
   const itemCount = getItemCount(data);
   if (itemCount === 0) {

@@ -1,7 +1,6 @@
 import React, { Component } from 'react';
-import ReactNative, { AsyncStorage, Alert, Platform, Dimensions, TextInput, Modal } from 'react-native';
+import { AsyncStorage, Alert, Platform, Dimensions, TextInput, Modal } from 'react-native';
 import { Button, Container, Content, List, ListItem, Text, Fab, Icon, Form, Item, Label, Input, Header, Picker, View, Left, Body, Title, Right, Footer } from 'native-base';
-import ModalWrapper from 'react-native-modal-wrapper';
 import Swipeout from "react-native-swipeout";
 import email from 'react-native-email'
 import { moderateScale } from "./scale"

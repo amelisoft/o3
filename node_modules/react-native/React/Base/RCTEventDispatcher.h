@@ -1,10 +1,8 @@
-/**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+/*
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import <UIKit/UIKit.h>
@@ -39,15 +37,23 @@ RCT_EXTERN NSString *RCTNormalizeInputEventName(NSString *eventName);
 
 @property (nonatomic, strong, readonly) NSNumber *viewTag;
 @property (nonatomic, copy, readonly) NSString *eventName;
-@property (nonatomic, assign, readonly) uint16_t coalescingKey;
 
 - (BOOL)canCoalesce;
-- (id<RCTEvent>)coalesceWithEvent:(id<RCTEvent>)newEvent;
 
-// used directly for doing a JS call
+/** used directly for doing a JS call */
 + (NSString *)moduleDotMethod;
-// must contain only JSON compatible values
+
+/** must contain only JSON compatible values */
 - (NSArray *)arguments;
+
+@optional
+
+/**
+ * Coalescing related methods must only be implemented if canCoalesce
+ * returns YES.
+ */
+@property (nonatomic, assign, readonly) uint16_t coalescingKey;
+- (id<RCTEvent>)coalesceWithEvent:(id<RCTEvent>)newEvent;
 
 @end
 
@@ -82,12 +88,6 @@ __deprecated_msg("Subclass RCTEventEmitter instead");
  */
 - (void)sendDeviceEventWithName:(NSString *)name body:(id)body
 __deprecated_msg("Subclass RCTEventEmitter instead");
-
-/**
- * Deprecated, do not use.
- */
-- (void)sendInputEventWithName:(NSString *)name body:(NSDictionary *)body
-__deprecated_msg("Use RCTDirectEventBlock or RCTBubblingEventBlock instead");
 
 /**
  * Send a text input/focus event. For internal use only.

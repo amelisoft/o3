@@ -1,18 +1,15 @@
 ﻿using ReactNative.Bridge;
 using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Net.Http;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using Windows.ApplicationModel;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
 using Windows.Devices.Power;
 using Windows.System;
 using Windows.Security.Credentials.UI;
 using Windows.Networking;
 using Windows.Networking.Connectivity;
 using System.Linq;
+using Newtonsoft.Json.Linq;
 
 namespace RNDeviceInfo
 {
@@ -31,6 +28,26 @@ namespace RNDeviceInfo
             }
         }
 
+        public override JObject ModuleConstants
+        {
+            get
+            {
+                return new JObject
+                {
+                    { "uniqueId", getUniqueIdSync() },
+                    { "deviceId", getDeviceIdSync() },
+                    { "bundleId", getBundleIdSync() },
+                    { "systemVersion", getSystemVersionSync() },
+                    { "appVersion", getAppVersionSync() },
+                    { "buildNumber", getBuildNumberSync() },
+                    { "isTablet", isTabletSync() },
+                    { "appName", getAppNameSync() },
+                    { "brand", getBrandSync() },
+                    { "model", getModelSync() },
+                };
+            }
+        }
+
         private bool IsEmulator(string model)
         {
             Regex rgx = new Regex("(?i:virtual)");
@@ -43,35 +60,40 @@ namespace RNDeviceInfo
             return !rgx.IsMatch(os);
         }
 
-        private bool is24Hour()
-        {
-            return DateTimeFormatInfo.CurrentInfo.ShortTimePattern.Contains("H");
-        }
-
-        [ReactMethod]
-        public async void isPinOrFingerprintSet(ICallback actionCallback)
+        private async Task<bool> isPinOrFingerprint()
         {
             try
             {
                 var ucvAvailability = await UserConsentVerifier.CheckAvailabilityAsync();
-
-                actionCallback.Invoke(ucvAvailability == UserConsentVerifierAvailability.Available);
+                return ucvAvailability == UserConsentVerifierAvailability.Available;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                actionCallback.Invoke(false);
+                return false;
             }
         }
 
+        [ReactMethod(IsBlockingSynchronousMethod = true)]
+        public bool isPinOrFingerprintSetSync()
+        {
+            return isPinOrFingerprint().Result;
+        }
         [ReactMethod]
-        public async void getIpAddress(IPromise promise)
+        public async void isPinOrFingerprintSet(IPromise promise)
+        {
+            var result = await isPinOrFingerprint();
+            promise.Resolve(result);
+        }
+
+        [ReactMethod(IsBlockingSynchronousMethod = true)]
+        public string getIpAddressSync()
         {
             var hostNameType = HostNameType.Ipv4;
             var icp = NetworkInformation.GetInternetConnectionProfile();
 
             if (icp?.NetworkAdapter == null)
             {
-                promise.Reject(new InvalidOperationException("Network adapter not found."));
+                return "unknown";
             }
             else
             {
@@ -81,12 +103,36 @@ namespace RNDeviceInfo
                             hn.Type == hostNameType &&
                             hn.IPInformation?.NetworkAdapter != null &&
                             hn.IPInformation.NetworkAdapter.NetworkAdapterId == icp.NetworkAdapter.NetworkAdapterId);
-                promise.Resolve(hostname?.CanonicalName);
+                return hostname?.CanonicalName;
             }
         }
 
         [ReactMethod]
-        public async void getBatteryLevel(IPromise promise)
+        public void getIpAddress(IPromise promise)
+        {
+            promise.Resolve(getIpAddressSync());
+        }
+
+        private async Task<bool> isCameraPresentTask()
+        {
+            var devices = await Windows.Devices.Enumeration.DeviceInformation.FindAllAsync(Windows.Devices.Enumeration.DeviceClass.VideoCapture);
+            return devices.Count > 0;
+        }
+
+        [ReactMethod(IsBlockingSynchronousMethod = true)]
+        public bool isCameraPresentSync()
+        {
+            return isCameraPresentTask().Result;
+        }
+
+        [ReactMethod]
+        public async void isCameraPresent(IPromise promise)
+        {
+            promise.Resolve(await isCameraPresentTask());
+        }
+
+        [ReactMethod(IsBlockingSynchronousMethod = true)]
+        public double getBatteryLevelSync()
         {
             // Create aggregate battery object
             var aggBattery = Battery.AggregateBattery;
@@ -97,99 +143,253 @@ namespace RNDeviceInfo
             if ((report.FullChargeCapacityInMilliwattHours == null) ||
                 (report.RemainingCapacityInMilliwattHours == null))
             {
-                promise.Reject(new InvalidOperationException("Could not fetch battery information."));
+                return -1;
             }
             else
             {
                 var max = Convert.ToDouble(report.FullChargeCapacityInMilliwattHours);
                 var value = Convert.ToDouble(report.RemainingCapacityInMilliwattHours);
-                promise.Resolve(value / max);
+                return value / max;
             }
         }
-
-        public override IReadOnlyDictionary<string, object> Constants
+        [ReactMethod]
+        public void getBatteryLevel(IPromise promise)
         {
+            promise.Resolve(getBatteryLevelSync());
+        }
 
-            get
+        [ReactMethod(IsBlockingSynchronousMethod = true)]
+        public string getAppVersionSync()
+        {
+            try
             {
-                Dictionary<string, object> constants = new Dictionary<string, object>();
-
-                constants["appVersion"] = "not available";
-                constants["buildVersion"] = "not available";
-                constants["buildNumber"] = 0;
-
-                Package package = Package.Current;
-                PackageId packageId = package.Id;
-                PackageVersion version = packageId.Version;
-                String bundleId = packageId.Name;
-                String appName = package.DisplayName;
-
-                try
-                {
-                    constants["appVersion"] = string.Format("{0}.{1}.{2}.{3}", version.Major, version.Minor, version.Build, version.Revision);
-                    constants["buildNumber"] = version.Build.ToString();
-                    constants["buildVersion"] = version.Build.ToString();
-                }
-                catch
-                {
-                }
-
-                String deviceName = "not available";
-                String manufacturer = "not available";
-                String device_id = "not available";
-                String model = "not available";
-                String hardwareVersion = "not available";
-                String osVersion = "not available";
-                String os = "not available";
-
-                CultureInfo culture = CultureInfo.CurrentCulture;
-
-                try
-                {
-                    var deviceInfo = new Windows.Security.ExchangeActiveSyncProvisioning.EasClientDeviceInformation();
-                    deviceName = deviceInfo.FriendlyName;
-                    manufacturer = deviceInfo.SystemManufacturer;
-                    device_id = deviceInfo.Id.ToString();
-                    model = deviceInfo.SystemProductName;
-                    hardwareVersion = deviceInfo.SystemHardwareVersion;
-                    os = deviceInfo.OperatingSystem;
-
-
-                    string deviceFamilyVersion = Windows.System.Profile.AnalyticsInfo.VersionInfo.DeviceFamilyVersion;
-                    ulong version2 = ulong.Parse(deviceFamilyVersion);
-                    ulong major = (version2 & 0xFFFF000000000000L) >> 48;
-                    ulong minor = (version2 & 0x0000FFFF00000000L) >> 32;
-                    osVersion = $"{major}.{minor}";
-                }
-                catch
-                {
-                }
-                
-                constants["instanceId"] = "not available";
-                constants["deviceName"] = deviceName;
-                constants["systemName"] = "Windows";
-                constants["systemVersion"] = osVersion;
-                constants["apiLevel"] = "not available";
-                constants["model"] = model;
-                constants["brand"] = model;
-                constants["deviceId"] = hardwareVersion;
-                constants["deviceLocale"] = culture.Name;
-                constants["deviceCountry"] = culture.EnglishName;
-                constants["uniqueId"] = device_id;
-                constants["systemManufacturer"] = manufacturer;
-                constants["bundleId"] = bundleId;
-                constants["appName"] = appName;
-                constants["userAgent"] = "not available";
-                constants["timezone"] = TimeZoneInfo.Local.Id;
-                constants["isEmulator"] = IsEmulator(model);
-                constants["isTablet"] = IsTablet(os);
-                constants["carrier"] = "not available";
-                constants["is24Hour"] = is24Hour();
-                constants["maxMemory"] = MemoryManager.AppMemoryUsageLimit;
-                constants["firstInstallTime"] = package.InstalledDate.ToUnixTimeMilliseconds();
-
-                return constants;
+                PackageVersion version = Package.Current.Id.Version;
+                return string.Format("{0}.{1}.{2}.{3}", version.Major, version.Minor, version.Build, version.Revision);
             }
+            catch (Exception)
+            {
+                return "unknown";
+            }
+        }
+        [ReactMethod]
+        public void getAppVersion(IPromise promise)
+        {
+            promise.Resolve(getAppVersionSync());
+        }
+
+        [ReactMethod(IsBlockingSynchronousMethod = true)]
+        public string getBuildNumberSync()
+        {
+            try
+            {
+                return Package.Current.Id.Version.Build.ToString();
+            }
+            catch (Exception)
+            {
+                return "unknown";
+            }
+        }
+        [ReactMethod]
+        public void getBuildNumber(IPromise promise)
+        {
+            promise.Resolve(getBuildNumberSync());
+        }
+
+        [ReactMethod(IsBlockingSynchronousMethod = true)]
+        public string getBuildVersionSync()
+        {
+            return getBuildNumberSync();
+        }
+
+        [ReactMethod]
+        public void getBuildVersion(IPromise promise)
+        {
+            getBuildNumber(promise);
+        }
+
+        [ReactMethod(IsBlockingSynchronousMethod = true)]
+        public long getMaxMemorySync() { return (long)MemoryManager.AppMemoryUsageLimit; }
+        [ReactMethod]
+        public void getMaxMemory(IPromise promise) { promise.Resolve(getMaxMemorySync()); }
+
+        [ReactMethod(IsBlockingSynchronousMethod = true)]
+        public long getFirstInstallTimeSync() { return Package.Current.InstalledDate.ToUnixTimeMilliseconds(); }
+        [ReactMethod]
+        public void getFirstInstallTime(IPromise promise) { promise.Resolve(getFirstInstallTimeSync()); }
+
+        [ReactMethod(IsBlockingSynchronousMethod = true)]
+        public string getAppNameSync() { return Package.Current.DisplayName; }
+        [ReactMethod]
+        public void getAppName(IPromise promise) { promise.Resolve(getAppNameSync()); }
+
+        [ReactMethod(IsBlockingSynchronousMethod = true)]
+        public string getBundleIdSync() { return Package.Current.Id.Name; }
+        [ReactMethod]
+        public void getBundleId(IPromise promise) { promise.Resolve(getBundleIdSync()); }
+
+        [ReactMethod(IsBlockingSynchronousMethod = true)]
+        public string getDeviceNameSync()
+        {
+            try
+            {
+                return new Windows.Security.ExchangeActiveSyncProvisioning.EasClientDeviceInformation().FriendlyName;
+            }
+            catch (Exception)
+            {
+                return "unknown";
+            }
+        }
+        [ReactMethod]
+        public void getDeviceName(IPromise promise)
+        {
+            promise.Resolve(getDeviceNameSync());
+        }
+
+        [ReactMethod(IsBlockingSynchronousMethod = true)]
+        public string getSystemVersionSync()
+        {
+            try
+            {
+                var deviceInfo = new Windows.Security.ExchangeActiveSyncProvisioning.EasClientDeviceInformation();
+                string deviceFamilyVersion = Windows.System.Profile.AnalyticsInfo.VersionInfo.DeviceFamilyVersion;
+                ulong version2 = ulong.Parse(deviceFamilyVersion);
+                ulong major = (version2 & 0xFFFF000000000000L) >> 48;
+                ulong minor = (version2 & 0x0000FFFF00000000L) >> 32;
+                return $"{major}.{minor}";
+            }
+            catch (Exception)
+            {
+                return "unknown";
+            }
+        }
+        [ReactMethod]
+        public void getSystemVersion(IPromise promise)
+        {
+            promise.Resolve(getSystemVersionSync());
+        }
+
+        [ReactMethod(IsBlockingSynchronousMethod = true)]
+        public string getModelSync()
+        {
+            try
+            {
+                return new Windows.Security.ExchangeActiveSyncProvisioning.EasClientDeviceInformation().SystemProductName;
+            }
+            catch (Exception)
+            {
+                return "unknown";
+            }
+        }
+        [ReactMethod]
+        public void getModel(IPromise promise)
+        {
+            promise.Resolve(getModelSync());
+        }
+
+        [ReactMethod(IsBlockingSynchronousMethod = true)]
+        public string getBrandSync()
+        {
+            return getModelSync();
+        }
+        [ReactMethod]
+        public void getBrand(IPromise promise)
+        {
+            promise.Resolve(getBrandSync());
+        }
+
+        [ReactMethod(IsBlockingSynchronousMethod = true)]
+        public bool isEmulatorSync()
+        {
+            try
+            {
+                var deviceInfo = new Windows.Security.ExchangeActiveSyncProvisioning.EasClientDeviceInformation();
+                return deviceInfo.SystemProductName.Equals("Virtual");
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+        [ReactMethod]
+        public void isEmulator(IPromise promise)
+        {
+            promise.Resolve(isEmulatorSync());
+        }
+
+        [ReactMethod(IsBlockingSynchronousMethod = true)]
+        public string getUniqueIdSync()
+        {
+            try
+            {
+                var deviceInfo = new Windows.Security.ExchangeActiveSyncProvisioning.EasClientDeviceInformation();
+                return deviceInfo.Id.ToString();
+            }
+            catch (Exception)
+            {
+                return "unknown";
+            }
+        }
+        [ReactMethod]
+        public void getUniqueId(IPromise promise)
+        {
+            promise.Resolve(getUniqueIdSync());
+        }
+
+        [ReactMethod(IsBlockingSynchronousMethod = true)]
+        public string getDeviceIdSync()
+        {
+            try
+            {
+                var deviceInfo = new Windows.Security.ExchangeActiveSyncProvisioning.EasClientDeviceInformation();
+                return deviceInfo.SystemHardwareVersion;
+            }
+            catch (Exception)
+            {
+                return "";
+            }
+        }
+        [ReactMethod]
+        public void getDeviceId(IPromise promise)
+        {
+            promise.Resolve(getDeviceIdSync());
+        }
+
+        [ReactMethod(IsBlockingSynchronousMethod = true)]
+        public string getSystemManufacturerSync()
+        {
+            try
+            {
+                var deviceInfo = new Windows.Security.ExchangeActiveSyncProvisioning.EasClientDeviceInformation();
+                return deviceInfo.SystemManufacturer;
+            }
+            catch (Exception)
+            {
+                return "unknown";
+            }
+        }
+        [ReactMethod]
+        public void getSystemManufacturer(IPromise promise)
+        {
+            promise.Resolve(getSystemManufacturerSync());
+        }
+
+        [ReactMethod(IsBlockingSynchronousMethod = true)]
+        public bool isTabletSync()
+        {
+            try
+            {
+                var deviceInfo = new Windows.Security.ExchangeActiveSyncProvisioning.EasClientDeviceInformation();
+                return !deviceInfo.OperatingSystem.Equals("WINDOWS");
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+        [ReactMethod]
+        public void isTablet(IPromise promise)
+        {
+            promise.Resolve(isTabletSync());
         }
     }
 }
